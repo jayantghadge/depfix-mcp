@@ -1,0 +1,11 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "depfix": {
+      "type": "local",
+      "command": ["java", "-jar", "/Users/jayantghadge/depfix-mcp/build/libs/depfix-mcp-0.1.0.jar"],
+      "enabled": true,
+      "timeout": 30000
+    }
+  }
+}

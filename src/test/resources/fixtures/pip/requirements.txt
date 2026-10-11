@@ -1,0 +1,9 @@
+# sample requirements
+requests==2.28.1
+flask>=2.0,<3.0
+django[postgres]~=4.2
+celery; python_version > "3.8"
+-r other.txt
+--index-url https://pypi.org/simple
+-e git+https://github.com/example/pkg.git#egg=pkg
+not a valid line !!!

@@ -1,0 +1,38 @@
+spring:
+  main:
+    web-application-type: none
+    banner-mode: "off"
+  ai:
+    mcp:
+      server:
+        name: depfix-mcp
+        version: 0.1.0
+        type: SYNC
+        stdio: true
+        instructions: >-
+          DepFix Phase 1: read-only dependency inventory. Use configure_repository
+          with a GitHub URL first, then detect_repository_ecosystems, then
+          analyze_dependencies. Never execute target repository code.
+        capabilities:
+          tool: true
+          resource: false
+          prompt: false
+          completion: false
+
+logging:
+  pattern:
+    console:
+  file:
+    name: ./build/depfix-mcp.log
+  level:
+    root: WARN
+    dev.depfix: INFO
+
+depfix:
+  github:
+    api-base-url: https://api.github.com
+    connect-timeout-ms: 10000
+    request-timeout-s: 20
+    max-files: 60
+    max-file-bytes: 1000000
+    user-agent: depfix-mcp/0.1.0
