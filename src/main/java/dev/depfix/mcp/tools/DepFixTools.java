@@ -9,6 +9,7 @@ import dev.depfix.mcp.model.ConfigureResult;
 import dev.depfix.mcp.model.DetectResult;
 import dev.depfix.mcp.model.DetectedFile;
 import dev.depfix.mcp.service.DependencyInventoryService;
+import dev.depfix.mcp.session.RepositoryResolver;
 import dev.depfix.mcp.session.RepositorySession;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,11 +27,14 @@ public class DepFixTools {
   private final GitHubClient github;
   private final DependencyInventoryService inventory;
   private final RepositorySession session;
+  private final RepositoryResolver resolver;
 
-  public DepFixTools(GitHubClient github, DependencyInventoryService inventory, RepositorySession session) {
+  public DepFixTools(GitHubClient github, DependencyInventoryService inventory,
+      RepositorySession session, RepositoryResolver resolver) {
     this.github = github;
     this.inventory = inventory;
     this.session = session;
+    this.resolver = resolver;
   }
 
   @Tool(name = "configure_repository",
@@ -92,7 +96,7 @@ public class DepFixTools {
       String branch) {
     RepositoryRef ref;
     try {
-      ref = resolveRef(repository_url, branch);
+      ref = resolver.resolve(repository_url, branch);
     } catch (IllegalArgumentException e) {
       return new DetectResult(null, null, null, List.of(), List.of(), e.getMessage());
     }
@@ -117,37 +121,11 @@ public class DepFixTools {
       String branch) {
     RepositoryRef ref;
     try {
-      ref = resolveRef(repository_url, branch);
+      ref = resolver.resolve(repository_url, branch);
     } catch (IllegalArgumentException e) {
       return new AnalyzeResult(null, null, null, null, List.of(), List.of(),
           java.util.Map.of(), java.util.Map.of(), List.of(), List.of(), e.getMessage());
     }
     return inventory.analyze(ref.owner(), ref.repo(), ref.branch());
-  }
-
-  private RepositoryRef resolveRef(String url, String branch) {
-    if (url != null && !url.isBlank()) {
-      var parsed = RepositoryUrlParser.parse(url);
-      String urlBranch = RepositoryUrlParser.extractBranchFromUrl(url);
-      String requested = branch != null && !branch.isBlank() ? branch.strip()
-          : (urlBranch != null && !urlBranch.isBlank() ? urlBranch.strip() : null);
-      if (requested != null) return new RepositoryRef(parsed.owner(), parsed.repo(), requested);
-      try {
-        String def = github.getRepoInfo(parsed.owner(), parsed.repo()).defaultBranch();
-        return new RepositoryRef(parsed.owner(), parsed.repo(), def);
-      } catch (GitHubException e) {
-        throw new IllegalArgumentException(e.getMessage());
-      }
-    }
-    RepositoryRef current = session.get();
-    if (current == null) {
-      throw new IllegalArgumentException(
-          "No repository selected. Call configure_repository with a GitHub URL first, "
-              + "or pass repository_url to this tool.");
-    }
-    if (branch != null && !branch.isBlank() && !branch.strip().equals(current.branch())) {
-      return new RepositoryRef(current.owner(), current.repo(), branch.strip());
-    }
-    return current;
   }
 }

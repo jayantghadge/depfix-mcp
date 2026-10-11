@@ -10,9 +10,11 @@ spring:
         type: SYNC
         stdio: true
         instructions: >-
-          DepFix Phase 1: read-only dependency inventory. Use configure_repository
-          with a GitHub URL first, then detect_repository_ecosystems, then
-          analyze_dependencies. Never execute target repository code.
+          DepFix: read-only dependency inventory and vulnerability assessment. Use
+          configure_repository with a public GitHub URL first, then
+          detect_repository_ecosystems, analyze_dependencies, or
+          assess_vulnerabilities. Never execute target repository code and never
+          suggest or apply upgrades.
         capabilities:
           tool: true
           resource: false
@@ -36,3 +38,22 @@ depfix:
     max-files: 60
     max-file-bytes: 1000000
     user-agent: depfix-mcp/0.1.0
+  osv:
+    api-base-url: https://api.osv.dev
+    request-timeout-s: 25
+    batch-size: 100
+    max-assessed: 300
+  kev:
+    feed-url: https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json
+    cache-dir: ${user.home}/.cache/depfix
+    ttl-hours: 24
+    request-timeout-s: 25
+  nvd:
+    api-base-url: https://services.nvd.nist.gov/rest/json/cves/2.0
+    request-timeout-s: 25
+    spacing-ms: 6500
+    max-lookups: 15
+    cache-dir: ${user.home}/.cache/depfix/nvd
+    ttl-hours: 24
+    # NVD fills severity gaps only (findings OSV leaves unscored) and caches
+    # responses on disk. Optional: set NVD_API_KEY env for 50 req/30s instead of 5 req/30s.

@@ -1,6 +1,7 @@
 package dev.depfix.mcp.config;
 
 import dev.depfix.mcp.tools.DepFixTools;
+import dev.depfix.mcp.tools.DepFixVulnTools;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.tool.method.MethodToolCallbackProvider;
 import org.springframework.context.annotation.Bean;
@@ -10,7 +11,7 @@ import org.springframework.context.annotation.Configuration;
 public class McpToolConfiguration {
 
   @Bean
-  public ToolCallbackProvider depFixToolCallbacks(DepFixTools tools) {
-    return MethodToolCallbackProvider.builder().toolObjects(tools).build();
+  public ToolCallbackProvider depFixToolCallbacks(DepFixTools tools, DepFixVulnTools vulnTools) {
+    return MethodToolCallbackProvider.builder().toolObjects(tools, vulnTools).build();
   }
 }

@@ -1,36 +1,12 @@
-# DepFix MCP — Phase 1
+# DepFix MCP
 
-Read-only MCP server that takes a **GitHub repository URL in chat** and returns a
-**structured dependency inventory**. Phase 1 stops at inventory — no vulnerability
-matching, upgrades, or pull requests.
+A read-only MCP server for OpenCode. Give it a public GitHub repo URL in chat
+and it returns a dependency inventory (Phase 1) and a vulnerability report
+(Phase 2). It never edits code, upgrades packages, or opens pull requests.
 
-- Runtime: Java 21, Spring Boot 3.4, Spring AI 1.0 (`spring-ai-starter-mcp-server`, STDIO)
-- Build: Gradle wrapper (`./gradlew`), no system Gradle install needed
-- Source: GitHub REST API, read-only, bounded retrieval (max 60 files, 1 MB/file)
-- Target repos can be **any language** — Java 21 is only DepFix's own runtime
-
-## Tools
-
-| Tool | Purpose |
-|---|---|
-| `configure_repository` | Validate URL, resolve branch (default via API), check read access |
-| `detect_repository_ecosystems` | List manifests/lockfiles + parser support (detection ≠ extraction) |
-| `analyze_dependencies` | Structured inventory: declared vs resolved versions, scopes, warnings |
-
-## Supported formats (Core-5 scope)
-
-| Ecosystem | File | What you get |
-|---|---|---|
-| Maven | `pom.xml` | Direct deps, `${property}` versions, scopes; unmanaged versions reported with `null` + warning |
-| npm | `package.json` | Constraints (`^4.2` stays a constraint, never a resolved version) + prod/dev/peer/optional |
-| npm | `package-lock.json` | Resolved versions (v1 + v2/v3), dev flag |
-| pip | `requirements.txt` | Constraints, extras, markers; includes/options/editables flagged |
-| Gradle | `build.gradle(.kts)` | String-literal deps; `ext`/`extra` version refs resolved from the same file; catalogs, BOM-managed and dynamic versions flagged, never executed |
-| Go | `go.mod` | Requirements, direct vs `// indirect` |
-
-All other known files (`yarn.lock`, `pnpm-lock.yaml`, `pyproject.toml`, `Cargo.*`,
-`composer.*`, `Gemfile*`, `*.csproj`, …) are **detected but reported unsupported** —
-never silently skipped.
+- Stack: Java 21, Spring Boot 3.4, Spring AI 1.0, Gradle wrapper, STDIO transport
+- Data sources (all read-only): GitHub REST API, OSV.dev, CISA KEV, NVD
+- Works on repos in any language. Public repositories only - no tokens, no login.
 
 ## Setup
 
@@ -39,8 +15,7 @@ cd ~/depfix-mcp
 ./gradlew clean build
 ```
 
-Wire into OpenCode — add the `mcp.depfix` block to your global
-`~/.config/opencode/opencode.jsonc` (or project `opencode.json`), fixing the jar path:
+Add this to `~/.config/opencode/opencode.jsonc` (fix the jar path to yours):
 
 ```json
 {
@@ -55,55 +30,77 @@ Wire into OpenCode — add the `mcp.depfix` block to your global
 }
 ```
 
-Restart OpenCode / re-open the folder. Check `opencode mcp list` shows
-`depfix ✓ connected`. STDIO logs go to `./build/depfix-mcp.log`
-(stdout stays clean for the MCP protocol).
+Restart OpenCode, then check `opencode mcp list` shows `depfix connected`.
+Logs go to `./build/depfix-mcp.log`. After any rebuild, just restart OpenCode.
 
-## Usage (chat)
+## Use it
 
-> Analyze dependencies in `https://github.com/OWNER/REPO`.
-
-OpenCode calls `configure_repository` → `detect_repository_ecosystems` →
-`analyze_dependencies`. No `GITHUB_OWNER`/`GITHUB_REPO` env vars needed.
-
-## Scope: public repositories only
-
-DepFix Phase 1 supports **public repositories only**. There is no authentication:
-no tokens in config, chat, or environment, and the server sends no
-`Authorization` header. Requests for repositories that are private or do not
-exist return a plain "not found — public repositories only" message.
-
-## Limitations
-
-- No transitive closure beyond what lockfiles state; no vulnerability data
-- Manifest constraints are never inferred into resolved versions
-- Build files are parsed as text, never executed (catalogs stay unresolved)
-- Anonymous GitHub API calls are rate-limited (60 req/hr); keep scans small or retry after reset
-
-## How it works — user walkthrough
-
-One-time setup is build → `depfix ✓ connected` in `opencode mcp list`.
-After that, each repo is one sentence:
+Inventory:
 
 > Analyze dependencies in `https://github.com/OWNER/REPO`.
 
-OpenCode calls `configure_repository` → `detect_repository_ecosystems` →
-`analyze_dependencies` and reports the inventory (declared vs resolved versions,
-scopes, source files) plus warnings for anything it could not parse.
+Vulnerabilities:
 
-| Situation | What you experience |
+> Check my repo for known vulnerabilities: `https://github.com/OWNER/REPO`.
+
+Add `on branch develop` to scan a non-default branch. If you forget the URL,
+OpenCode asks for it. If a prompt is ambiguous, append `use depfix`.
+
+| Situation | What happens |
 |---|---|
-| Public repo | Just works — no setup, no questions. |
-| Private or missing repo | Plain "not found — public repositories only" message. |
-| URL missing | OpenCode asks *"Which GitHub repository should I analyze?"* — reply with the link. |
-| Wrong branch | *"Branch 'xyz' not found, default is 'main'."* — confirm or correct. |
+| Public repo | Just works, no setup, no questions. |
+| Private or missing repo | Plain "not found - public repositories only" message. |
+| Wrong branch | Tells you the default branch so you can correct it. |
 
-Tips:
+## Tools
 
-- Append `on branch develop` to scan a non-default branch; omit it and DepFix
-  resolves the repo's real default branch (never assumes `main`).
-- Follow up on the result: *"which of these are dev-only?"* or
-  *"summarize by ecosystem"* — OpenCode reasons over the structured inventory.
-- Append `use depfix` if a prompt is ambiguous about which tool to use.
-- After rebuilding the jar (`./gradlew clean build`), just restart OpenCode —
-  the config points at the jar path, so no re-registration is needed.
+| Tool | What it does |
+|---|---|
+| `configure_repository` | Validates the URL, resolves the branch, checks read access. |
+| `detect_repository_ecosystems` | Lists dependency files found and which ones can be parsed. |
+| `analyze_dependencies` | Returns the inventory: versions, scopes, source files, warnings. |
+| `assess_vulnerabilities` | Returns findings ranked by confidence and urgency, plus a fix plan. |
+
+## Supported files
+
+| Ecosystem | File | Notes |
+|---|---|---|
+| Maven | `pom.xml` | Direct deps, `${property}` versions, scopes. |
+| npm | `package.json` | Constraints stay constraints, never treated as resolved versions. |
+| npm | `package-lock.json` | Resolved versions, dev flag. |
+| pip | `requirements.txt` | Constraints, extras, markers. |
+| Gradle | `build.gradle(.kts)` | `ext`/`extra` refs resolved as text, never executed. |
+| Go | `go.mod` | Direct vs `// indirect`. |
+
+Other known files (`yarn.lock`, `pyproject.toml`, `Cargo.*`, `composer.*`,
+`Gemfile*`, `*.csproj`, ...) are reported as detected-but-unsupported, never
+silently skipped. Version ranges without a pinned or resolved value are skipped
+the same way - DepFix guesses nothing.
+
+## How the vulnerability report works
+
+1. One matchable version per package: lockfile first, then `go.mod` minimums,
+   then exact pins like `==1.2.3`.
+2. OSV.dev matching with local range confirmation. Identity mismatches are
+   dropped with a warning. GIT-only ranges stay as `likely`, never dropped.
+3. Every CVE checked against the CISA KEV catalog (cached 24h).
+4. NVD fills severity gaps only (cached 24h, throttled, optional `NVD_API_KEY`
+   for higher limits).
+5. Each finding gets confidence (`confirmed`/`likely`), urgency (`urgent` for
+   KEV-listed or Critical, `elevated` for High or unknown, else `routine`),
+   severity with source, affected ranges, fixed version, and osv.dev links.
+6. Findings group into `remediations`: one fix per package with priority,
+   target version, upgrade type/risk (`patch`/`minor`/`major`), and which file
+   to edit. This is the handoff Phase 3 will act on.
+
+` sources` in the report shows each source as `ok`, `partial`, `stale-cache`,
+or `unavailable`. If OSV fails, the report errors instead of pretending to be
+clean. If KEV or NVD degrades, the report says so. A clean report means "no
+known vulns in these sources", not proof of safety.
+
+## Limits
+
+- No transitive closure beyond what lockfiles state.
+- Anonymous GitHub API: 60 requests/hour. Retrying later fixes it.
+- Build files are parsed as text, never run.
+- Private repos are out of scope.
