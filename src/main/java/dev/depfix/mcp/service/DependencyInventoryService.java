@@ -119,7 +119,12 @@ public class DependencyInventoryService {
     }
 
     return new AnalyzeResult(owner, repo, branch, Instant.now().toString(), deduped, bounded,
-        new LinkedHashMap<>(byEco), new LinkedHashMap<>(byType), warnings, limitations, null);
+        new LinkedHashMap<>(byEco), new LinkedHashMap<>(byType), dedupe(warnings), limitations, null);
+  }
+
+  /** Drops verbatim-duplicate warnings (same declaration repeated) while keeping order. */
+  public static List<String> dedupe(List<String> warnings) {
+    return new ArrayList<>(new LinkedHashSet<>(warnings));
   }
 
   private static String n(String s) {

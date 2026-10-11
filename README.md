@@ -25,7 +25,7 @@ matching, upgrades, or pull requests.
 | npm | `package.json` | Constraints (`^4.2` stays a constraint, never a resolved version) + prod/dev/peer/optional |
 | npm | `package-lock.json` | Resolved versions (v1 + v2/v3), dev flag |
 | pip | `requirements.txt` | Constraints, extras, markers; includes/options/editables flagged |
-| Gradle | `build.gradle(.kts)` | String-literal deps; catalogs + dynamic expressions flagged, never executed |
+| Gradle | `build.gradle(.kts)` | String-literal deps; `ext`/`extra` version refs resolved from the same file; catalogs, BOM-managed and dynamic versions flagged, never executed |
 | Go | `go.mod` | Requirements, direct vs `// indirect` |
 
 All other known files (`yarn.lock`, `pnpm-lock.yaml`, `pyproject.toml`, `Cargo.*`,

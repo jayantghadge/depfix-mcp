@@ -99,7 +99,8 @@ public class DepFixTools {
     List<String> warnings = new ArrayList<>();
     try {
       List<DetectedFile> files = inventory.detect(ref.owner(), ref.repo(), ref.branch(), warnings);
-      return new DetectResult(ref.owner(), ref.repo(), ref.branch(), files, warnings, null);
+      return new DetectResult(ref.owner(), ref.repo(), ref.branch(), files,
+          DependencyInventoryService.dedupe(warnings), null);
     } catch (GitHubException e) {
       return new DetectResult(ref.owner(), ref.repo(), ref.branch(), List.of(), warnings,
           e.getMessage());

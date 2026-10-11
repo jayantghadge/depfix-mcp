@@ -106,6 +106,41 @@ class ParserTest {
   }
 
   @Test
+  void gradleResolvesExtProperties() throws Exception {
+    var parser = new GradleParser();
+    var out = parser.analyze("build.gradle", fixture("gradle/ext-block.gradle"));
+    var byName = out.dependencies().stream()
+        .collect(java.util.stream.Collectors.toMap(
+            d -> d.name(), d -> d, (a, b) -> a));
+
+    // ${var}, $var, and map-notation "$var" all resolve against the ext block
+    assertEquals("0.12.6", byName.get("io.jsonwebtoken:jjwt-api").declaredVersion());
+    assertEquals("0.12.6", byName.get("io.jsonwebtoken:jjwt-impl").declaredVersion());
+    assertEquals("0.12.6", byName.get("io.jsonwebtoken:jjwt-jackson").declaredVersion());
+    assertTrue(byName.get("io.jsonwebtoken:jjwt-api").parseStatus().contains("ext"));
+
+    // unresolved property keeps the raw reference + warning, never a guessed version
+    var missing = byName.get("com.example:missing-prop");
+    assertEquals("${noSuchProp}", missing.declaredVersion());
+    assertNull(missing.resolvedVersion());
+    assertTrue(out.warnings().stream().anyMatch(w -> w.contains("noSuchProp")));
+
+    // BOM-managed (no version) still reported with null + warning
+    var managed = byName.get("org.springframework.boot:spring-boot-starter-web");
+    assertNull(managed.declaredVersion());
+  }
+
+  @Test
+  void gradleResolvesKotlinExtra() throws Exception {
+    var parser = new GradleParser();
+    var out = parser.analyze("build.gradle.kts", fixture("gradle/ext-block.gradle.kts"));
+    var api = out.dependencies().stream()
+        .filter(d -> d.name().equals("io.jsonwebtoken:jjwt-api")).findFirst().orElseThrow();
+    assertEquals("0.12.6", api.declaredVersion());
+    assertNull(api.resolvedVersion());
+  }
+
+  @Test
   void goModMarksDirectVsIndirect() throws Exception {
     var parser = new GoModParser();
     var out = parser.analyze("go.mod", fixture("go/go.mod"));
